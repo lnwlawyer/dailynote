@@ -2,8 +2,17 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FlowBoard</title>
+    
+    <!-- PWA Configuration -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/jpeg" href="https://live.staticflickr.com/65535/54706797821_2d5dc29827_w.jpg">
+    <link rel="apple-touch-icon" href="https://live.staticflickr.com/65535/54706797821_2d5dc29827_w.jpg">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FlowBoard">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,7 +21,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;700&display=swap" rel="stylesheet">
     
     <style>
-        body { font-family: 'Sarabun', sans-serif; }
+        body { font-family: 'Sarabun', sans-serif; touch-action: none; overscroll-behavior: none; }
         /* Hide scrollbar for clean look */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -37,7 +46,7 @@
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="bg-gray-50 h-screen overflow-hidden">
+<body class="bg-gray-50 h-screen w-screen overflow-hidden overscroll-none">
     <div id="root" class="h-full w-full"></div>
 
     <script type="text/babel" data-type="module">
@@ -48,7 +57,8 @@
             Move, ZoomIn, ZoomOut, Maximize, X, Trash2, CheckCircle, 
             Clock, AlertCircle, ArrowLeft, Book, MoreVertical, Edit2, 
             FolderOpen, PenTool, Undo, Redo, Calendar as CalendarIcon, 
-            ChevronLeft, ChevronRight, Filter, LogOut, User, Loader2, Mail 
+            ChevronLeft, ChevronRight, Filter, LogOut, User, Loader2, Mail,
+            Touchpad, MousePointer2
         } from 'lucide-react';
 
         // --- Firebase Imports ---
@@ -203,11 +213,11 @@
         };
 
         // 3. Canvas Item
-        const CanvasItem = ({ item, isSelected, onMouseDown, onSelect, onDoubleClick }) => {
+        const CanvasItem = ({ item, isSelected, onPointerDown, onSelect, onEdit }) => {
             const getBorderColor = () => {
                 if (isSelected) return 'ring-2 ring-blue-500 shadow-xl';
                 if (item.type === 'drawing') return isSelected ? 'ring-2 ring-blue-500' : '';
-                return 'shadow-md hover:shadow-lg border-gray-200';
+                return 'shadow-md border-gray-200';
             };
 
             const getStatusIcon = (status) => {
@@ -222,42 +232,63 @@
                 transform: `translate(${item.x}px, ${item.y}px)`,
                 width: `${item.width}px`,
                 height: item.type === 'note' ? `${item.width}px` : `${item.height}px`,
+                touchAction: 'none' // Critical for mobile dragging
             };
 
             if (item.type === 'drawing') {
                 return (
-                    <div className={`absolute cursor-grab active:cursor-grabbing select-none ${isSelected ? 'z-20' : 'z-10'}`} style={{...baseStyle, pointerEvents: 'all'}} onMouseDown={(e) => onMouseDown(e, item)} onClick={(e) => { e.stopPropagation(); onSelect(item.id); }} onDoubleClick={() => onDoubleClick(item)}>
+                    <div className={`absolute cursor-move select-none ${isSelected ? 'z-20' : 'z-10'}`} style={{...baseStyle, pointerEvents: 'all'}} onPointerDown={(e) => onPointerDown(e, item)} onClick={(e) => { e.stopPropagation(); onSelect(item.id); }}>
                         <div className={`w-full h-full ${isSelected ? 'ring-2 ring-blue-500 ring-offset-4 rounded-sm' : ''}`}>
                             <svg width="100%" height="100%" viewBox={`0 0 ${item.width} ${item.height}`} className="overflow-visible">
                                 <path d={getSvgPathFromStroke(item.points)} stroke={item.color || "#000"} strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                         </div>
+                        {isSelected && (
+                             <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-white shadow-lg rounded-full px-2 py-1 flex gap-2 border border-gray-200 z-30">
+                                <button onPointerDown={(e) => { e.stopPropagation(); onEdit(item); }} className="p-2 hover:bg-gray-100 rounded-full text-red-500"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                        )}
                     </div>
                 );
             }
 
             if (item.type === 'note') {
                 return (
-                    <div className={`absolute cursor-grab active:cursor-grabbing p-4 transition-shadow select-none ${item.color} ${isSelected ? 'ring-2 ring-blue-500 z-20' : 'z-10'}`} style={baseStyle} onMouseDown={(e) => onMouseDown(e, item)} onClick={(e) => { e.stopPropagation(); onSelect(item.id); }} onDoubleClick={() => onDoubleClick(item)}>
-                        <div className="font-handwriting text-lg leading-tight text-gray-800 break-words h-full overflow-hidden">{item.content || "โน้ตใหม่..."}</div>
+                    <div className={`absolute cursor-move p-4 transition-shadow select-none ${item.color} ${isSelected ? 'ring-2 ring-blue-500 z-20' : 'z-10'}`} style={baseStyle} onPointerDown={(e) => onPointerDown(e, item)} onClick={(e) => { e.stopPropagation(); onSelect(item.id); }}>
+                        <div className="font-handwriting text-lg leading-tight text-gray-800 break-words h-full overflow-hidden pointer-events-none">{item.content || "โน้ตใหม่..."}</div>
+                         {isSelected && (
+                            <div className="absolute -top-3 -right-3 flex gap-1">
+                                <button onPointerDown={(e) => { e.stopPropagation(); onEdit(item); }} className="bg-white p-2 rounded-full shadow border text-blue-600 hover:bg-blue-50"><Edit2 className="w-4 h-4" /></button>
+                            </div>
+                        )}
                     </div>
                 );
             }
 
             return (
-                <div className={`absolute bg-white rounded-lg border flex flex-col cursor-grab active:cursor-grabbing transition-all select-none ${getBorderColor()} ${isSelected ? 'z-20' : 'z-10'}`} style={{...baseStyle, height: 'auto', minHeight: `${item.height}px`}} onMouseDown={(e) => onMouseDown(e, item)} onClick={(e) => { e.stopPropagation(); onSelect(item.id); }} onDoubleClick={() => onDoubleClick(item)}>
+                <div className={`absolute bg-white rounded-lg border flex flex-col cursor-move transition-all select-none ${getBorderColor()} ${isSelected ? 'z-20' : 'z-10'}`} style={{...baseStyle, height: 'auto', minHeight: `${item.height}px`}} onPointerDown={(e) => onPointerDown(e, item)} onClick={(e) => { e.stopPropagation(); onSelect(item.id); }}>
                     <div className={`h-2 w-full rounded-t-lg ${item.color || 'bg-gray-200'}`} />
                     <div className="p-3 flex flex-col gap-2">
                         <div className="flex justify-between items-start">
-                            <h3 className="font-bold text-gray-800 leading-snug">{item.title || "ชื่องานใหม่"}</h3>
+                            <h3 className="font-bold text-gray-800 leading-snug pointer-events-none">{item.title || "ชื่องานใหม่"}</h3>
                             {getStatusIcon(item.status)}
                         </div>
-                        <p className="text-xs text-gray-500 line-clamp-3">{item.content || "คำอธิบายงาน..."}</p>
-                        <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
+                        <p className="text-xs text-gray-500 line-clamp-3 pointer-events-none">{item.content || "คำอธิบายงาน..."}</p>
+                        <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center pointer-events-none">
                             <span className="text-[10px] px-2 py-0.5 bg-gray-100 rounded text-gray-500 font-mono">ID-{item.id.toString().slice(-4)}</span>
                             {item.assignee && (<div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-[10px] flex items-center justify-center font-bold">{item.assignee[0]}</div>)}
                         </div>
                     </div>
+                    {/* Toolbar for Touch Devices (Always visible when selected) */}
+                    {isSelected && (
+                         <div className="absolute -top-12 left-0 w-full flex justify-center z-30 pointer-events-auto">
+                             <div className="bg-white shadow-xl rounded-full px-3 py-1.5 flex gap-2 border border-gray-200">
+                                <button onPointerDown={(e) => { e.stopPropagation(); onEdit(item); }} className="p-2 hover:bg-gray-100 rounded-full text-blue-600"><Edit2 className="w-4 h-4" /></button>
+                                <div className="w-px bg-gray-200 mx-1"></div>
+                                {/* Deletion is handled inside Edit Modal or via drag to trash (future) */}
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -279,7 +310,7 @@
             const scale = Math.min(scaleX, scaleY);
 
             return (
-                <div className="fixed bottom-4 right-4 w-40 h-24 bg-white border border-gray-300 shadow-lg rounded-md overflow-hidden opacity-90 hover:opacity-100 transition-opacity z-50 hidden sm:block">
+                <div className="fixed bottom-20 right-4 w-32 h-20 sm:w-40 sm:h-24 bg-white border border-gray-300 shadow-lg rounded-md overflow-hidden opacity-90 hover:opacity-100 transition-opacity z-40 hidden sm:block">
                     <div className="relative w-full h-full bg-gray-50">
                         {items.map(item => (
                             <div key={item.id} className={`absolute ${item.type === 'note' ? item.color.replace('bg-', 'bg-') : item.type === 'drawing' ? 'bg-transparent border border-gray-400' : 'bg-gray-400'}`} style={{ left: (item.x - bounds.minX) * scale, top: (item.y - bounds.minY) * scale, width: Math.max(2, item.width * scale), height: Math.max(2, (item.type === 'note' ? item.width : item.height) * scale), borderRadius: '1px' }} />
@@ -298,7 +329,7 @@
 
             if (item.type === 'drawing') {
                 return (
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
                         <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden p-6 text-center animate-in fade-in zoom-in duration-200">
                             <h3 className="text-lg font-bold mb-4">จัดการรูปวาด</h3>
                             <div className="flex gap-4 justify-center">
@@ -311,7 +342,7 @@
             }
 
             return (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
                         <div className="p-4 border-b flex justify-between items-center bg-gray-50">
                             <h2 className="text-lg font-bold flex items-center gap-2 text-gray-700">{item.type === 'note' ? <StickyNote className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />} {item.type === 'note' ? 'แก้ไขโน้ต' : 'รายละเอียดงาน'}</h2>
@@ -338,7 +369,7 @@
         const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
             if (!isOpen) return null;
             return (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={onCancel}>
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={onCancel}>
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
                         <div className="p-6 text-center">
                             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"><AlertCircle className="w-6 h-6 text-red-600" /></div>
@@ -425,7 +456,7 @@
             const filteredNotebooks = selectedDate ? notebooks.filter(nb => nb.updatedAt && new Date(nb.updatedAt).toDateString() === selectedDate.toDateString()) : notebooks;
 
             return (
-                <div className="min-h-screen bg-gray-50 p-6 md:p-8 font-sans">
+                <div className="min-h-screen bg-gray-50 p-6 md:p-8 font-sans overflow-y-auto">
                     <div className="max-w-7xl mx-auto">
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                             <div><h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3"><Book className="w-8 h-8 text-blue-600" /> ห้องสมุดของฉัน</h1><p className="text-gray-500 mt-1 text-sm pl-11">{selectedDate ? `กิจกรรมวันที่ ${selectedDate.toLocaleDateString('th-TH', { dateStyle: 'long' })}` : 'จัดการความคิดและโปรเจกต์ของคุณในที่เดียว'}</p></div>
@@ -598,28 +629,51 @@
 
             const getCanvasCoordinates = (cx, cy) => ({ x: (cx - viewport.x) / viewport.scale, y: (cy - viewport.y) / viewport.scale });
             
-            const handleMouseDown = (e) => {
+            // --- Unified Pointer Events for Touch and Mouse ---
+            const handlePointerDown = (e) => {
+                // Ignore secondary clicks (right click) if using mouse
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+
                 if (e.target === containerRef.current || e.target.tagName === 'SVG' || interactionMode === 'draw') {
                     if (interactionMode === 'draw') {
                         const { x, y } = getCanvasCoordinates(e.clientX, e.clientY);
-                        setCurrentStroke([{x, y}]); setSelectedId(null); return;
+                        setCurrentStroke([{x, y}]); 
+                        setSelectedId(null); 
+                        // Important: Capture pointer to track movement even if it leaves the initial element
+                        e.target.setPointerCapture(e.pointerId);
+                        return;
                     }
-                    if (interactionMode === 'pan' || e.button === 1 || e.target === containerRef.current) {
-                        setDragging({ type: 'viewport', startX: e.clientX, startY: e.clientY, initialX: viewport.x, initialY: viewport.y }); setSelectedId(null); return;
+                    if (interactionMode === 'pan' || e.pointerType === 'touch' && e.target === containerRef.current) {
+                        setDragging({ type: 'viewport', startX: e.clientX, startY: e.clientY, initialX: viewport.x, initialY: viewport.y }); 
+                        setSelectedId(null);
+                        e.target.setPointerCapture(e.pointerId);
+                        return;
                     }
                     setSelectedId(null);
                 }
             };
-            const handleMouseMove = (e) => {
-                if (interactionMode === 'draw' && currentStroke) { const { x, y } = getCanvasCoordinates(e.clientX, e.clientY); setCurrentStroke(prev => [...prev, {x, y}]); return; }
+
+            const handlePointerMove = (e) => {
+                if (interactionMode === 'draw' && currentStroke) { 
+                    e.preventDefault(); // Stop scrolling
+                    const { x, y } = getCanvasCoordinates(e.clientX, e.clientY); 
+                    setCurrentStroke(prev => [...prev, {x, y}]); 
+                    return; 
+                }
+                
                 if (!dragging) return;
-                if (dragging.type === 'viewport') { setViewport({ ...viewport, x: dragging.initialX + (e.clientX - dragging.startX), y: dragging.initialY + (e.clientY - dragging.startY) }); }
-                else if (dragging.type === 'item') {
-                    const deltaX = (e.clientX - dragging.startX) / viewport.scale; const deltaY = (e.clientY - dragging.startY) / viewport.scale;
+                e.preventDefault(); // Stop scrolling while dragging
+                
+                if (dragging.type === 'viewport') { 
+                    setViewport({ ...viewport, x: dragging.initialX + (e.clientX - dragging.startX), y: dragging.initialY + (e.clientY - dragging.startY) }); 
+                } else if (dragging.type === 'item') {
+                    const deltaX = (e.clientX - dragging.startX) / viewport.scale; 
+                    const deltaY = (e.clientY - dragging.startY) / viewport.scale;
                     setItems(prev => prev.map(item => item.id === dragging.id ? { ...item, x: dragging.initialItemX + deltaX, y: dragging.initialItemY + deltaY } : item));
                 }
             };
-            const handleMouseUp = () => {
+
+            const handlePointerUp = (e) => {
                 if (interactionMode === 'draw' && currentStroke) {
                     if (currentStroke.length > 2) {
                         const xs = currentStroke.map(p => p.x), ys = currentStroke.map(p => p.y);
@@ -628,12 +682,16 @@
                         setItems(newItems); pushToHistory(newItems, connections);
                     }
                     setCurrentStroke(null);
+                    // e.target.releasePointerCapture(e.pointerId);
                 }
                 if (dragging?.type === 'item') {
-                    if (Math.abs(dragging.startX - window.event.clientX) > 5 || Math.abs(dragging.startY - window.event.clientY) > 5) pushToHistory(items, connections);
+                    if (Math.abs(dragging.startX - e.clientX) > 5 || Math.abs(dragging.startY - e.clientY) > 5) {
+                        pushToHistory(items, connections);
+                    }
                 }
                 setDragging(null);
             };
+
             const handleWheel = (e) => {
                 if (e.ctrlKey) { e.preventDefault(); const newScale = Math.min(Math.max(0.1, viewport.scale - e.deltaY * 0.001), 3); setViewport(prev => ({ ...prev, scale: newScale })); }
                 else if (interactionMode === 'pan') { setViewport(prev => ({ ...prev, x: prev.x - e.deltaX, y: prev.y - e.deltaY })); }
@@ -646,6 +704,10 @@
             const saveItem = (updated) => { const newItems = items.map(i => i.id === updated.id ? updated : i); setItems(newItems); pushToHistory(newItems, connections); };
             const deleteItem = (id) => { const newItems = items.filter(i => i.id !== id); const newConns = connections.filter(c => c.from !== id && c.to !== id); setItems(newItems); setConnections(newConns); setSelectedId(null); pushToHistory(newItems, newConns); };
 
+            const zoom = (delta) => {
+                setViewport(prev => ({ ...prev, scale: Math.min(Math.max(0.1, prev.scale + delta), 3) }));
+            };
+
             if (authLoading) return <div className="h-screen w-full flex items-center justify-center bg-gray-50"><Loader2 className="w-8 h-8 animate-spin text-blue-600"/></div>;
             if (!user) return <AuthScreen />;
 
@@ -653,30 +715,82 @@
 
             return (
                 <div className="w-full h-screen overflow-hidden bg-gray-50 text-slate-800 font-sans relative">
-                    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur shadow-lg rounded-full px-4 py-2 z-50 flex items-center gap-2 sm:gap-4 border border-gray-200 max-w-[95vw] overflow-x-auto">
-                        <button onClick={() => { setView('dashboard'); setActiveNotebookId(null); }} className="p-2 hover:bg-gray-100 rounded-full text-gray-600 mr-2 flex items-center gap-1"><ArrowLeft className="w-5 h-5" /><span className="text-sm font-medium hidden sm:inline">Back</span></button>
-                        <div className="flex items-center gap-2 mr-2 border-r pr-4 border-gray-300"><Book className="w-5 h-5 text-blue-600" /><span className="font-bold text-gray-700 truncate max-w-[100px] sm:max-w-[150px]">{notebooks.find(n => n.id === activeNotebookId)?.name || 'Untitled'}</span></div>
-                        <div className="flex items-center gap-1 mr-2 border-r pr-2 border-gray-300"><button onClick={undo} disabled={historyStep <= 0} className={`p-2 rounded-lg ${historyStep <= 0 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-100'}`}><Undo className="w-4 h-4" /></button><button onClick={redo} disabled={historyStep >= history.length - 1} className={`p-2 rounded-lg ${historyStep >= history.length - 1 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-100'}`}><Redo className="w-4 h-4" /></button></div>
-                        <button onClick={() => addItem('task')} className="flex flex-col items-center group min-w-[40px]"><div className="p-2 rounded-lg group-hover:bg-blue-50 text-blue-600"><Plus className="w-6 h-6" /></div><span className="text-[10px] text-gray-500 hidden sm:block">Task</span></button>
-                        <button onClick={() => addItem('note')} className="flex flex-col items-center group min-w-[40px]"><div className="p-2 rounded-lg group-hover:bg-yellow-50 text-yellow-500"><StickyNote className="w-6 h-6" /></div><span className="text-[10px] text-gray-500 hidden sm:block">Note</span></button>
-                        <div className="h-6 w-px bg-gray-300 mx-1"></div>
-                        <button onClick={() => setInteractionMode(interactionMode === 'draw' ? 'select' : 'draw')} className={`flex flex-col items-center group min-w-[40px] ${interactionMode === 'draw' ? 'text-purple-600' : 'text-gray-500'}`}><div className={`p-2 rounded-lg ${interactionMode === 'draw' ? 'bg-purple-100' : 'group-hover:bg-gray-100'}`}><PenTool className="w-6 h-6" /></div><span className="text-[10px] hidden sm:block">Draw</span></button>
-                        <div className="h-6 w-px bg-gray-300 mx-1"></div>
-                        <button onClick={() => setInteractionMode(interactionMode === 'connect' ? 'select' : 'connect')} className={`flex flex-col items-center group min-w-[40px] ${interactionMode === 'connect' ? 'text-blue-600' : 'text-gray-500'}`}><div className={`p-2 rounded-lg ${interactionMode === 'connect' ? 'bg-blue-100' : 'group-hover:bg-gray-100'}`}><LinkIcon className="w-6 h-6" /></div><span className="text-[10px] hidden sm:block">{interactionMode === 'connect' ? 'Cancel' : 'Connect'}</span></button>
-                        <div className="h-6 w-px bg-gray-300 mx-1"></div>
-                        <button onClick={() => setInteractionMode(interactionMode === 'pan' ? 'select' : 'pan')} className={`p-2 rounded-lg ${interactionMode === 'pan' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}><Move className="w-5 h-5" /></button>
+                    <div className="absolute top-4 left-0 right-0 px-4 flex justify-center z-50 pointer-events-none">
+                        <div className="bg-white/95 backdrop-blur shadow-lg rounded-2xl p-1.5 flex items-center gap-1 sm:gap-4 border border-gray-200 overflow-x-auto max-w-full pointer-events-auto">
+                             <button onClick={() => { setView('dashboard'); setActiveNotebookId(null); }} className="p-2 hover:bg-gray-100 rounded-xl text-gray-600 flex items-center gap-1 shrink-0"><ArrowLeft className="w-5 h-5" /></button>
+                             <div className="h-6 w-px bg-gray-300 mx-1 shrink-0"></div>
+                             
+                             <button onClick={() => addItem('task')} className="flex flex-col items-center group min-w-[40px] shrink-0"><div className="p-2 rounded-xl group-hover:bg-blue-50 text-blue-600"><Plus className="w-6 h-6" /></div></button>
+                             <button onClick={() => addItem('note')} className="flex flex-col items-center group min-w-[40px] shrink-0"><div className="p-2 rounded-xl group-hover:bg-yellow-50 text-yellow-500"><StickyNote className="w-6 h-6" /></div></button>
+                             
+                             <div className="h-6 w-px bg-gray-300 mx-1 shrink-0"></div>
+                             
+                             <button onClick={() => setInteractionMode(interactionMode === 'draw' ? 'select' : 'draw')} className={`flex flex-col items-center group min-w-[40px] shrink-0 ${interactionMode === 'draw' ? 'text-purple-600' : 'text-gray-500'}`}><div className={`p-2 rounded-xl ${interactionMode === 'draw' ? 'bg-purple-100' : 'group-hover:bg-gray-100'}`}><PenTool className="w-6 h-6" /></div></button>
+                             <button onClick={() => setInteractionMode(interactionMode === 'connect' ? 'select' : 'connect')} className={`flex flex-col items-center group min-w-[40px] shrink-0 ${interactionMode === 'connect' ? 'text-blue-600' : 'text-gray-500'}`}><div className={`p-2 rounded-xl ${interactionMode === 'connect' ? 'bg-blue-100' : 'group-hover:bg-gray-100'}`}><LinkIcon className="w-6 h-6" /></div></button>
+                             
+                             <div className="h-6 w-px bg-gray-300 mx-1 shrink-0 hidden sm:block"></div>
+                             
+                             <div className="flex gap-1 shrink-0 hidden sm:flex">
+                                <button onClick={undo} disabled={historyStep <= 0} className={`p-2 rounded-xl ${historyStep <= 0 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-100'}`}><Undo className="w-5 h-5" /></button>
+                                <button onClick={redo} disabled={historyStep >= history.length - 1} className={`p-2 rounded-xl ${historyStep >= history.length - 1 ? 'text-gray-300' : 'text-gray-600 hover:bg-gray-100'}`}><Redo className="w-5 h-5" /></button>
+                             </div>
+                        </div>
                     </div>
-                    <div className="absolute bottom-6 left-6 bg-white shadow-md rounded-lg p-1 z-50 flex flex-col gap-1 border border-gray-200">
-                        <button onClick={() => zoom(0.1)} className="p-2 hover:bg-gray-100"><ZoomIn className="w-5 h-5" /></button>
-                        <button onClick={() => zoom(-0.1)} className="p-2 hover:bg-gray-100"><ZoomOut className="w-5 h-5" /></button>
+                    
+                    {/* Floating Zoom Controls for Mobile */}
+                     <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur shadow-md rounded-full p-1 z-50 flex flex-col gap-1 border border-gray-200">
+                        <button onClick={() => zoom(0.1)} className="p-3 hover:bg-gray-100 rounded-full active:bg-gray-200"><ZoomIn className="w-6 h-6 text-gray-700" /></button>
+                        <button onClick={() => zoom(-0.1)} className="p-3 hover:bg-gray-100 rounded-full active:bg-gray-200"><ZoomOut className="w-6 h-6 text-gray-700" /></button>
                     </div>
-                    {interactionMode === 'connect' && <div className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg z-50 animate-bounce text-sm">{connectStartId ? "คลิกปลายทาง" : "คลิกต้นทาง"}</div>}
-                    {interactionMode === 'draw' && <div className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white px-4 py-2 rounded-full shadow-lg z-50 text-sm">วาดบนกระดานได้เลย</div>}
-                    <div ref={containerRef} className={`w-full h-full cursor-${interactionMode === 'pan' || dragging?.type === 'viewport' ? 'grab' : interactionMode === 'draw' ? 'crosshair' : 'default'}`} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onWheel={handleWheel} style={{ backgroundImage: `radial-gradient(#cbd5e1 1px, transparent 1px)`, backgroundSize: `${20 * viewport.scale}px ${20 * viewport.scale}px`, backgroundPosition: `${viewport.x}px ${viewport.y}px` }}>
+
+                    {interactionMode === 'connect' && <div className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg z-50 animate-bounce text-sm whitespace-nowrap">{connectStartId ? "แตะที่ปลายทาง" : "แตะที่ต้นทาง"}</div>}
+                    {interactionMode === 'draw' && <div className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white px-4 py-2 rounded-full shadow-lg z-50 text-sm whitespace-nowrap">วาดได้เลย (ใช้นิ้วเดียว)</div>}
+                    
+                    <div ref={containerRef} className={`w-full h-full touch-none select-none ${interactionMode === 'draw' ? 'cursor-crosshair' : 'cursor-default'}`} 
+                        onPointerDown={handlePointerDown} 
+                        onPointerMove={handlePointerMove} 
+                        onPointerUp={handlePointerUp} 
+                        onPointerLeave={handlePointerUp}
+                        onWheel={handleWheel} 
+                        style={{ 
+                            backgroundImage: `radial-gradient(#cbd5e1 1px, transparent 1px)`, 
+                            backgroundSize: `${20 * viewport.scale}px ${20 * viewport.scale}px`, 
+                            backgroundPosition: `${viewport.x}px ${viewport.y}px` 
+                        }}>
                         <div style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`, transformOrigin: '0 0', width: '100%', height: '100%' }} className="relative transition-transform duration-75 ease-out">
                             {currentStroke && <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-50 overflow-visible"><path d={getSvgPathFromStroke(currentStroke)} stroke="#000" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" /></svg>}
                             <ConnectionLayer connections={connections} items={items} />
-                            {items.map(item => (<CanvasItem key={item.id} item={item} isSelected={selectedId === item.id} onMouseDown={(e) => { if (interactionMode === 'draw') return; if (interactionMode === 'connect') { e.stopPropagation(); if (!connectStartId) setConnectStartId(item.id); else { if (connectStartId !== item.id) { const newConn = { id: Date.now().toString(), from: connectStartId, to: item.id, type: 'solid' }; const newConns = [...connections, newConn]; setConnections(newConns); pushToHistory(items, newConns); } setConnectStartId(null); setInteractionMode('select'); } return; } if (e.button !== 0) return; e.stopPropagation(); setDragging({ type: 'item', id: item.id, startX: e.clientX, startY: e.clientY, initialItemX: item.x, initialItemY: item.y }); setSelectedId(item.id); }} onSelect={setSelectedId} onDoubleClick={setEditingItem} />))}
+                            {items.map(item => (
+                                <CanvasItem 
+                                    key={item.id} 
+                                    item={item} 
+                                    isSelected={selectedId === item.id} 
+                                    onPointerDown={(e, it) => {
+                                        if (interactionMode === 'draw') return; 
+                                        if (interactionMode === 'connect') { 
+                                            e.stopPropagation(); 
+                                            if (!connectStartId) setConnectStartId(it.id); 
+                                            else { 
+                                                if (connectStartId !== it.id) { 
+                                                    const newConn = { id: Date.now().toString(), from: connectStartId, to: it.id, type: 'solid' }; 
+                                                    const newConns = [...connections, newConn]; 
+                                                    setConnections(newConns); 
+                                                    pushToHistory(items, newConns); 
+                                                } 
+                                                setConnectStartId(null); 
+                                                setInteractionMode('select'); 
+                                            } 
+                                            return; 
+                                        } 
+                                        e.stopPropagation(); 
+                                        e.target.setPointerCapture(e.pointerId);
+                                        setDragging({ type: 'item', id: it.id, startX: e.clientX, startY: e.clientY, initialItemX: it.x, initialItemY: it.y }); 
+                                        setSelectedId(it.id);
+                                    }}
+                                    onSelect={setSelectedId} 
+                                    onEdit={setEditingItem} 
+                                />
+                            ))}
                         </div>
                     </div>
                     <MiniMap items={items} viewport={viewport} setViewport={setViewport} />
